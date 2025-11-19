@@ -6,6 +6,6 @@ Features: Timed multiplication challenges, Dynamic score tracking, Animated owl 
 
 Tech Stack: HTML, CSS, JavaScript
 
-Try it: 
+Try it: https://nekelmitchell.github.io/owl-multiplication-game/ 
 
 ![Screenshot](https://github.com/user-attachments/assets/16f9de7b-a5b9-4902-88b0-eab7e98d6e3d)
