@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Don't Let The Owl See You — Multiplication Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --game-width: 420px;
+    --game-height: 460px;
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    font-family: "Press Start 2P", monospace;
+    background: url("backgroundowl.png") center top / cover no-repeat fixed;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    color: #fff;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:30px 12px;
+  }
+
+  .container{
+    width:var(--game-width);
+    max-width:95vw;
+    background: rgba(140,85,255,0.04);
+    border-radius:14px;
+    border: 3px solid rgba(191,64,191,0.95);
+    box-shadow:0 10px 30px rgba(0,0,0,0.45);
+    padding:10px;
+  }
+
+  .header{
+    text-align:center;
+    font-size:12px;
+    color:#000;
+    background:#FFD700;
+    border-radius:8px;
+    padding:8px;
+    margin-bottom:10px;
+  }
+
+  /* Game canvas area (will hold the layered images) */
+  .game-canvas{
+    position:relative;
+    width:100%;
+    height:var(--game-height);
+    border-radius:10px;
+    overflow:hidden;
+    background:transparent;
+  }
+
+  /* Main layered image that represents the current game screen */
+  #layer-main{
+    position:absolute;
+    left:50%;
+    transform:translateX(-50%);
+    top:8%;
+    width:92%;
+    image-rendering: pixelated;
+    user-select:none;
+    pointer-events:none;
+  }
+
+  /* Start page image (top) - visible initially */
+  #start-image{
+    position:absolute;
+    left:50%;
+    transform:translateX(-50%);
+    top:6%;
+    width:92%;
+    image-rendering: pixelated;
+    user-select:none;
+    pointer-events:none;
+  }
+
+  /* transparent clickable area laid over the START text in start-image.
+     Coordinates chosen to sit near the bottom-center of the start image where "START!" sits.
+     If you want the click area moved slightly, tweak bottom/width/left values below. */
+  .start-hit {
+    position:absolute;
+    left:50%;
+    transform:translateX(-50%);
+    bottom:7%;
+    width:58%;
+    height:12%;
+    z-index:40;
+    cursor:pointer;
+    border-radius:8px;
+    /* visual debug: uncomment to tune click area */
+    /* background: rgba(255,0,0,0.15); */
+  }
+
+  /* HUD: Score and Timer */
+  .hud {
+    position:absolute;
+    top:8%;
+    left:6%;
+    z-index:50;
+    display:flex;
+    gap:8px;
+    align-items:center;
+    font-size:11px;
+    background: rgba(255,255,255,0.06);
+    padding:6px 8px;
+    border-radius:8px;
+    border: 2px solid rgba(191,64,191,0.6);
+  }
+
+  .hud .score { font-weight:700; }
+  .hud .timer { margin-left:8px; font-weight:700; }
+
+  /* Question area near top (problems list or current problem) */
+  .questions {
+    position:absolute;
+    top:14%;
+    left:50%;
+    transform:translateX(-50%);
+    width:88%;
+    z-index:45;
+    pointer-events:none;
+    text-align:center;
+    font-size:11px;
+    line-height:1.15;
+  }
+
+  .questions .current {
+    background: rgba(200,200,255,0.04);
+    padding:6px 8px;
+    border-radius:8px;
+    border:2px solid rgba(191,64,191,0.45);
+    pointer-events:none;
+  }
+
+  /* Input area placed to match the drawn tab/bar in your artwork (bottom center) */
+  .input-panel {
+    position:absolute;
+    left:50%;
+    transform:translateX(-50%);
+    bottom:20%;
+    width:76%;
+    z-index:60;
+    display:flex;
+    gap:8px;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .input-panel input[type="text"]{
+    width:62%;
+    padding:8px 10px;
+    border-radius:8px;
+    border:2px solid rgba(191,64,191,0.55);
+    font-family:inherit;
+    font-size:11px;
+    outline:none;
+    background: rgba(255,255,255,0.02);
+    color:#fff;
+  }
+
+  .input-panel button{
+    padding:8px 10px;
+    border-radius:8px;
+    border:2px solid rgba(191,64,191,0.85);
+    background: rgba(140,85,255,0.15);
+    cursor:pointer;
+    font-size:10px;
+  }
+
+  /* Message overlay (win/lose) */
+  .overlay {
+    position:absolute;
+    inset:0;
+    display:none;
+    z-index:80;
+    align-items:center;
+    justify-content:center;
+    background: rgba(0,0,0,0.45);
+    flex-direction:column;
+    text-align:center;
+    gap:14px;
+    padding:14px;
+  }
+
+  .overlay.show { display:flex; }
+
+  .overlay .title { font-size:12px; color:#fff; }
+  .overlay .subtitle { font-size:10px; color:#fff; }
+
+  .overlay button {
+    padding:8px 12px;
+    border-radius:10px;
+    border:2px solid rgba(255,215,0,0.9);
+    cursor:pointer;
+    background:#6b37a9;
+    color:#fff;
+    font-family:inherit;
+    font-size:11px;
+  }
+
+  /* small responsive tweaks */
+  @media (max-width:420px){
+    :root{ --game-height:430px; }
+    .questions { font-size:10px; }
+  }
+
+</style>
+</head>
+<body>
+  <div class="container" role="application" aria-label="Don't Let The Owl See You game">
+    <div class="header" id="game-header">Don't Let The Owl See You</div>
+
+    <div class="game-canvas" id="game-canvas" aria-live="polite">
+      <!-- Start page artwork (visible initially) -->
+      <img id="start-image" src="startpageowl.png" alt="Start screen art (click START!)" draggable="false">
+
+      <!-- clickable area placed where the START text appears in your image -->
+      <div class="start-hit" id="start-hit" title="Click to start the game" role="button" tabindex="0" aria-label="Start game"></div>
+
+      <!-- main layered screen used during the timed gameplay (swapped to multi images) -->
+      <img id="layer-main" src="" alt="Game screen" draggable="false">
+
+      <!-- HUD -->
+      <div class="hud" id="hud">
+        <div class="score">Score: <span id="score">0</span></div>
+        <div class="timer">Time: <span id="time">60</span>s</div>
+      </div>
+
+      <!-- Questions display -->
+      <div class="questions" id="questions">
+        <div class="current" id="current-question">Press START to begin</div>
+      </div>
+
+      <!-- Input panel placed visually inside the drawn tab -->
+      <div class="input-panel" id="input-panel" aria-hidden="true">
+        <input id="answer-input" type="text" inputmode="numeric" placeholder="Type your answer..." aria-label="Answer input">
+        <button id="submit-answer">Submit</button>
+      </div>
+
+      <!-- overlay for win/lose message -->
+      <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="title" id="overlay-title"></div>
+        <div class="subtitle" id="overlay-sub"></div>
+        <div style="display:flex;gap:12px;">
+          <button id="play-again">Play Again</button>
+          <button id="return-start">Return to Start</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* -------------------------
+   Game configuration & state
+   ------------------------- */
+const IMAGES = {
+  start: 'startpageowl.png',
+  oneMin: 'multionemin.png',
+  thirty: 'multi30sec.png',
+  zero: 'multizero.png'
+};
+
+const ALL_PROBLEMS = [
+  // Cleaned and corrected problem list (you can modify/add pairs here)
+  {q: '1 × 3', a: 3},
+  {q: '2 × 9', a: 18},
+  {q: '9 × 6', a: 54},
+  {q: '12 × 5', a: 60},
+  {q: '13 × 2', a: 26},
+  {q: '7 × 7', a: 49},
+  {q: '3 × 4', a: 12},
+  {q: '2 × 5', a: 10},
+  {q: '8 × 9', a: 72},
+  {q: '4 × 2', a: 8},
+  {q: '11 × 10', a: 110},
+  {q: '11 × 12', a: 132},
+  {q: '6 × 5', a: 30},
+  {q: '1 × 10', a: 10},
+  {q: '7 × 2', a: 14},
+  {q: '1 × 5', a: 5},
+  {q: '2 × 10', a: 20},
+  {q: '9 × 9', a: 81},
+  {q: '12 × 3', a: 36},
+  {q: '16 × 2', a: 32},
+  {q: '5 × 5', a: 25},
+  {q: '3 × 9', a: 27},
+  {q: '2 × 3', a: 6},
+  {q: '8 × 7', a: 56},
+  {q: '4 × 0', a: 0},
+];
+
+// Game state
+let problems = [];      // will be a shuffled subset of ALL_PROBLEMS
+let solved = new Set();
+let score = 0;
+let timeLeft = 60;
+let timerInterval = null;
+let gameRunning = false;
+
+/* -------------------------
+   Element refs
+   ------------------------- */
+const startHit = document.getElementById('start-hit');
+const startImage = document.getElementById('start-image');
+const layerMain = document.getElementById('layer-main');
+const hud = document.getElementById('hud');
+const scoreEl = document.getElementById('score');
+const timeEl = document.getElementById('time');
+const questionsEl = document.getElementById('current-question');
+const inputPanel = document.getElementById('input-panel');
+const answerInput = document.getElementById('answer-input');
+const submitBtn = document.getElementById('submit-answer');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlaySub = document.getElementById('overlay-sub');
+const playAgainBtn = document.getElementById('play-again');
+const returnStartBtn = document.getElementById('return-start');
+const headerEl = document.getElementById('game-header');
+
+/* -------------------------
+   Utility functions
+   ------------------------- */
+function shuffleArray(arr){
+  // Fisher-Yates
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startGame(){
+  // Reset
+  solved.clear();
+  score = 0;
+  timeLeft = 60;
+  scoreEl.textContent = score;
+  timeEl.textContent = timeLeft;
+  headerEl.textContent = "Solve all the multiplication problems before the owl sees you";
+
+  // choose a subset or all problems. Using all for now:
+  problems = shuffleArray(ALL_PROBLEMS).slice(0); // all problems, shuffled
+  // show the first problem
+  showNextUnsolved();
+  // show gameplay image and start timer
+  startImage.style.display = 'none';
+  layerMain.src = IMAGES.oneMin;
+  layerMain.style.display = 'block';
+  inputPanel.setAttribute('aria-hidden','false');
+  inputPanel.style.display = 'flex';
+  answerInput.value = '';
+  answerInput.focus();
+
+  gameRunning = true;
+  // clear any old timer
+  if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  timerInterval = setInterval(tickTimer, 1000);
+}
+
+function tickTimer(){
+  if(!gameRunning) return;
+  timeLeft--;
+  timeEl.textContent = timeLeft;
+  if(timeLeft === 30){
+    layerMain.src = IMAGES.thirty;
+  }
+  if(timeLeft <= 0){
+    timeLeft = 0;
+    timeEl.textContent = 0;
+    endGame(false);
+  }
+}
+
+function showNextUnsolved(){
+  // show a short list of next few problems or the current unsolved one
+  const next = problems.filter((p,i)=> !solved.has(i));
+  if(next.length === 0){
+    // all done -> win
+    endGame(true);
+    return;
+  }
+  // show the next problem (display "Solve: X" style)
+  questionsEl.innerHTML = `<strong>Solve:</strong><div style="margin-top:6px;">${next[0].q}</div>`;
+}
+
+function checkAnswer(){
+  if(!gameRunning) return;
+  const value = answerInput.value.trim();
+  if(value === '') return;
+  // accept numeric answers only
+  const num = Number(value);
+  if(Number.isNaN(num)){
+    // clear and keep going
+    answerInput.value = '';
+    answerInput.focus();
+    return;
+  }
+
+  // find the first unsolved problem (we used problems array and index by position)
+  let idx = problems.findIndex((p,i)=> !solved.has(i));
+  if(idx === -1) return; // already finished
+  const correct = problems[idx].a;
+  if(num === correct){
+    // mark solved
+    solved.add(idx);
+    score++;
+    scoreEl.textContent = score;
+    // clear input and show next
+    answerInput.value = '';
+    showNextUnsolved();
+  } else {
+    // wrong - allow retry (do not change score)
+    // small visual feedback: flash the input
+    answerInput.classList.add('shake');
+    setTimeout(()=> answerInput.classList.remove('shake'), 250);
+    // keep focus
+    answerInput.select();
+  }
+}
+
+/* End game routine */
+function endGame(won){
+  gameRunning = false;
+  if(timerInterval){ clearInterval(timerInterval); timerInterval = null; }
+  // show zero image
+  layerMain.src = IMAGES.zero;
+  // overlay content
+  overlay.setAttribute('aria-hidden','false');
+  overlay.classList.add('show');
+  inputPanel.setAttribute('aria-hidden','true');
+  overlayTitle.textContent = won ? 'You Won — You Escaped The Night' : 'You Lost — He Saw You';
+  overlaySub.textContent = `Final Score: ${score} / ${problems.length}`;
+  // set header text
+  headerEl.textContent = won ? 'You Won, You Escaped The Night' : 'You Lost, He Saw You';
+}
+
+/* Reset to start screen */
+function resetToStart(){
+  // stop timers
+  if(timerInterval){ clearInterval(timerInterval); timerInterval = null; }
+  gameRunning = false;
+  solved.clear();
+  score = 0;
+  scoreEl.textContent = score;
+  timeLeft = 60;
+  timeEl.textContent = timeLeft;
+  questionsEl.innerHTML = 'Press START to begin';
+  layerMain.style.display = 'none';
+  startImage.style.display = 'block';
+  inputPanel.setAttribute('aria-hidden','true');
+  inputPanel.style.display = 'none';
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden','true');
+  headerEl.textContent = "Don't Let The Owl See You";
+}
+
+/* Play again (when on overlay) */
+function playAgain(){
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden','true');
+  startGame();
+}
+
+/* -------------------------
+   Event wiring
+   ------------------------- */
+// Start via clicking the start area (or pressing Enter/Space while focused)
+startHit.addEventListener('click', startGame);
+startHit.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); startGame(); }
+});
+
+// Submit answer
+submitBtn.addEventListener('click', ()=>{
+  checkAnswer();
+  answerInput.focus();
+});
+
+// allow Enter in input to submit
+answerInput.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    checkAnswer();
+  }
+});
+
+// Play again and return to start
+playAgainBtn.addEventListener('click', playAgain);
+returnStartBtn.addEventListener('click', resetToStart);
+
+// Small keyboard accessibility: ESC stops game and returns to start
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape'){
+    resetToStart();
+  }
+});
+
+/* tiny style for wrong attempt (shake) */
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes shakeX { 0%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}100%{transform:translateX(0)}}
+  input.shake{ animation: shakeX .25s ease-in-out; }
+`;
+document.head.appendChild(style);
+
+/* initialize */
+resetToStart();
+
+</script>
+</body>
+</html>
