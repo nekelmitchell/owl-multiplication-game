@@ -1,10 +1,20 @@
-Multiplication Game — Owl Challenge
+# Multiplication Game — Owl Challenge⏲️
 
 A fast-paced math learning game where users answer multiplication questions before the owl “catches” them.
 
-Features: Timed multiplication challenges, Dynamic score tracking, Animated owl interactions, Increasing difficulty to improve math skills
+## Features
 
-Tech Stack: HTML, CSS, JavaScript
+* Timed multiplication challenges.
+* Dynamic score tracking.
+* Animated owl interactions.
+* Increasing difficulty to improve math skills.
+
+## Built With
+
+* HTML
+* CSS
+* JavaScript
+
 
 Try it: https://nekelmitchell.github.io/owl-multiplication-game/ 
 
